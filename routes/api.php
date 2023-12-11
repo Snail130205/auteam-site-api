@@ -20,6 +20,6 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 Route::get('/dictionary/getEducationType', [\App\Http\Controllers\DictionaryController::class, 'getEducationType']);
 
-Route::get('/register/registerTeam', [\App\Http\Controllers\RegisterController::class, 'registerTeam']);
+Route::post('/register/registerTeam', [\App\Http\Controllers\RegisterController::class, 'registerTeam']);
 
 Route::get('/verified/{key}', [\App\Http\Controllers\RegisterController::class, 'verifyTeam']);
