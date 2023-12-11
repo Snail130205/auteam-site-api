@@ -17,3 +17,9 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
+
+Route::get('/dictionary/getEducationType', [\App\Http\Controllers\DictionaryController::class, 'getEducationType']);
+
+Route::get('/register/registerTeam', [\App\Http\Controllers\RegisterController::class, 'registerTeam']);
+
+Route::get('/verified/{key}', [\App\Http\Controllers\RegisterController::class, 'verifyTeam']);
