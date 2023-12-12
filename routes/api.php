@@ -23,3 +23,5 @@ Route::get('/dictionary/getEducationType', [\App\Http\Controllers\DictionaryCont
 Route::post('/register/registerTeam', [\App\Http\Controllers\RegisterController::class, 'registerTeam']);
 
 Route::get('/verified/{key}', [\App\Http\Controllers\RegisterController::class, 'verifyTeam']);
+
+Route::get('/news/getNews', [\App\Http\Controllers\NewsController::class, 'getNews']);
