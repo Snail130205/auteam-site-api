@@ -33,10 +33,20 @@ class VkNewsService
         $newsList = [];
         foreach ($posts as $post) {
             $newsDto = new NewsDto();
-            $newsDto->text = $post['text'];
-            $newsDto->shortText = implode(' ', array_slice(explode(' ', $post['text']),0, 100));
+            $newsDto->text = !empty($post['text']) ? $post['text'] : null;
+            $newsDto->id = $post['hash'];
+            $newsDto->shortText = implode(' ', array_slice(explode(' ', $post['text']),0, 30));
+            $attachments = $post['attachments'];
 
+            if (isset($post['copy_history']) && empty($post['attachments'])) {
+                $newsDto->text = $newsDto->text ?? end($post['copy_history'])['text'] ?? null;
+                $newsDto->shortText = isset($newsDto->text) ? implode(' ', array_slice(explode(' ', $post['text']),0, 30)) : null;
+                $attachments = end($post['copy_history'])['attachments'];
+            }
 
+            foreach ($attachments as $attachment) {
+                $this->setPostFiles($attachment, $newsDto);
+            }
             $newsList[] = $newsDto;
         }
 
@@ -48,24 +58,22 @@ class VkNewsService
      * @param NewsDto $newsDto
      * @return void
      */
-    private function setPostFiles(array $post, NewsDto &$newsDto): void
+    private function setPostFiles(array $attachment, NewsDto &$newsDto): void
     {
-        foreach ($post['attachments'] as $attachment){
-            switch ($attachment['type']) {
-                case 'doc':
-                    $newsDto->fileUrls[] = new FileUrlDto($attachment['doc']['url'], $attachment['doc']['title']);
-                    break;
-                case 'link':
-                    $newsDto->links[] = new NewsLinkDto(
-                        $attachment['link']['url'],
-                        $attachment['link']['photo'] ?? [],
-                        $attachment['link']['title']
-                    );
-                    break;
-                case 'photo':
-                    $newsDto->imageUrl = end($attachment['photo']['sizes'])['url'];
-                    break;
-            }
+        switch ($attachment['type']) {
+            case 'doc':
+                $newsDto->fileUrls[] = new FileUrlDto($attachment['doc']['url'], $attachment['doc']['title']);
+                break;
+            case 'link':
+                $newsDto->links[] = new NewsLinkDto(
+                    $attachment['link']['url'],
+                    $attachment['link']['photo'] ?? [],
+                    $attachment['link']['title']
+                );
+                break;
+            case 'photo':
+                $newsDto->imageUrl = end($attachment['photo']['sizes'])['url'];
+                break;
         }
     }
 }

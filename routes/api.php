@@ -24,4 +24,6 @@ Route::post('/register/registerTeam', [\App\Http\Controllers\RegisterController:
 
 Route::get('/verified/{key}', [\App\Http\Controllers\RegisterController::class, 'verifyTeam']);
 
+Route::get('/olympiad/{olympiadId}', [\App\Http\Controllers\OlympiadController::class, 'getOlympiadInfo']);
+
 Route::get('/news/getNews', [\App\Http\Controllers\NewsController::class, 'getNews']);

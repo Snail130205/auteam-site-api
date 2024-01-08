@@ -4,9 +4,11 @@ namespace App\Dto;
 
 class NewsDto
 {
-    public string $text;
+    public string $id;
 
-    public string $shortText;
+    public ?string $text = null;
+
+    public ?string $shortText = null;
 
     public ?string $imageUrl = null;
 

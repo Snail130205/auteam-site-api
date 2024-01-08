@@ -10,7 +10,7 @@ class NewsController extends Controller
         private readonly NewsService $newsService
     ){}
 
-    public function getNews()
+    public function getNews(): array
     {
         return $this->newsService->getNews();
     }
