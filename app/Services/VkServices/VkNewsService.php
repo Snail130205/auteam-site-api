@@ -35,12 +35,12 @@ class VkNewsService
             $newsDto = new NewsDto();
             $newsDto->text = !empty($post['text']) ? $post['text'] : null;
             $newsDto->id = $post['hash'];
-            $newsDto->shortText = implode(' ', array_slice(explode(' ', $post['text']),0, 30));
+            $newsDto->shortText = implode(' ', array_slice(explode(' ', $newsDto->text),0, 30));
             $attachments = $post['attachments'];
 
             if (isset($post['copy_history']) && empty($post['attachments'])) {
                 $newsDto->text = $newsDto->text ?? end($post['copy_history'])['text'] ?? null;
-                $newsDto->shortText = isset($newsDto->text) ? implode(' ', array_slice(explode(' ', $post['text']),0, 30)) : null;
+                $newsDto->shortText = isset($newsDto->text) ? implode(' ', array_slice(explode(' ', $newsDto->text),0, 30)) : null;
                 $attachments = end($post['copy_history'])['attachments'];
             }
 
