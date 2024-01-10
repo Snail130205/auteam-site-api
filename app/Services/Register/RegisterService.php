@@ -4,6 +4,7 @@ namespace App\Services\Register;
 
 use App\Dto\ParticipantLoginDataDto;
 use App\Dto\RegistrationEmailDto;
+use App\Exceptions\UserValidateException;
 use App\Mail\RegistrationMail;
 use App\Models\EducationInstitutions;
 use App\Models\OlympiadTypes;
@@ -11,6 +12,7 @@ use App\Models\Participants;
 use App\Models\RegistrationFormDictionary;
 use App\Models\TeamLeaders;
 use App\Models\Teams;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -23,13 +25,13 @@ class RegisterService
      * @param array $registrationForm форма регистрации
      * @param int $olympiadId идентификатор олимпиады
      * @return void
-     * @throws \Exception
+     * @throws Exception
      */
     public function registerTeam(array $registrationForm, int $olympiadId): void
     {
         $olympiad = OlympiadTypes::find($olympiadId);
         if (!isset($olympiad)) {
-            throw new \Exception('Не существует олимиады для регистрации!');
+            throw new UserValidateException('Не существует олимиады для регистрации!');
         }
 
         $tables = $this->getRegistrationModels($registrationForm, $olympiadId);
@@ -43,10 +45,14 @@ class RegisterService
             $registrationEmailDto->participants = $this->registerParticipants($tables['participants'], $teamModel);
             Mail::to($registrationEmailDto->email)->send(new RegistrationMail($registrationEmailDto));
             DB::commit();
-        } catch (\Exception $exception) {
+        } catch (UserValidateException $validateException) {
+            DB::rollback();
+            Log::channel('daily')->error($validateException->getMessage());
+            throw new UserValidateException($validateException->getMessage());
+        } catch (Exception $exception) {
             DB::rollback();
             Log::channel('daily')->error($exception->getMessage());
-            throw new \Exception($exception->getMessage());
+            throw new Exception('Произошла ошибка при создании команды. Обратитесь к администратору для решение вашей пробелемы!');
         }
     }
 
@@ -54,7 +60,7 @@ class RegisterService
      * Подтверждение регистрации команды
      * @param string $teamKey
      * @return string
-     * @throws \Exception
+     * @throws Exception
      */
     public function verifyTeam(string $teamKey): string
     {
@@ -63,17 +69,17 @@ class RegisterService
             ->where('isRegister', false)
             ->first();
         if (!isset($team)) {
-            throw new \Exception('Неверная ссылка или ссылка устарела!');
+            throw new UserValidateException('Неверная ссылка или ссылка устарела!');
         }
         $team->isRegister = true;
         try {
             DB::beginTransaction();
             $team->save();
             DB::commit();
-        } catch (\Exception $exception) {
+        } catch (Exception $exception) {
             DB::rollback();
             Log::channel('daily')->error($exception->getMessage());
-            throw new \Exception($exception->getMessage());
+            throw new Exception('Произошла ошибка при регистрации команды! Пожалуйста обратитесь к администратору');
         }
 
         return 'Успешно';
@@ -86,7 +92,7 @@ class RegisterService
             ->get()
         ;
         if ($dictionaryFields->count() !== count($registrationForm)) {
-            throw new \Exception('Неверно заполнены поля!');
+            throw new UserValidateException('Неверно заполнены поля!');
         }
         $tables = [
             'team_leaders' => new TeamLeaders(),
@@ -94,11 +100,12 @@ class RegisterService
             'teams' => new Teams(),
             'participants' => []
         ];
-        $dictionaryFields->each(/**
-         * @throws \Exception
-         */ function (RegistrationFormDictionary $dictionaryField) use ($registrationForm, &$tables) {
-            $this->fillModelFromFrontend($dictionaryField, $registrationForm, $tables);
+        $userDataToCheckValidate = [];
+        $dictionaryFields->each(function (RegistrationFormDictionary $dictionaryField) use ($registrationForm, &$tables, &$userDataToCheckValidate) {
+            $this->fillModelFromFrontend($dictionaryField, $registrationForm, $tables, $userDataToCheckValidate);
         });
+
+        $this->validateRepeatInformation($userDataToCheckValidate, $olympiadId);
 
         return $tables;
     }
@@ -109,15 +116,23 @@ class RegisterService
      * @param array $registrationForm
      * @param array $tables
      * @return void
-     * @throws \Exception
+     * @throws Exception
      */
-    private function fillModelFromFrontend(RegistrationFormDictionary $dictionaryField, array $registrationForm, array &$tables): void
+    private function fillModelFromFrontend(RegistrationFormDictionary $dictionaryField, array $registrationForm, array &$tables, array &$userDataToCheckValidate): void
     {
-        if (!isset($registrationForm[$dictionaryField->name])) {
-            throw new \Exception('Неверно заполнены поля!');
+        if (!isset($registrationForm[$dictionaryField->name]) || empty($registrationForm[$dictionaryField->name])) {
+            throw new UserValidateException('Неверно заполнены поля!');
         }
         $table = $dictionaryField->table;
         $fieldName = $dictionaryField->fieldName;
+
+        /**
+         *  Проверка валидности номеров телефона
+         */
+        if ($fieldName === 'phone') {
+            $registrationForm[$dictionaryField->name] = $this->validatePhone($registrationForm[$dictionaryField->name]);
+        }
+
         switch ($table) {
             case 'teams':
             case 'education_institutions':
@@ -128,10 +143,15 @@ class RegisterService
                 if (!isset($tables[$table][$dictionaryField->number])) {
                     $tables[$table][$dictionaryField->number] = new Participants();
                 }
+                if (in_array($fieldName, ['phone', 'email', 'fullName'])) {
+                    $userDataToCheckValidate[$fieldName] = $userDataToCheckValidate[$fieldName] ?? [];
+                    $userDataToCheckValidate[$fieldName][] = $registrationForm[$dictionaryField->name];
+                }
+
                 $tables[$table][$dictionaryField->number]->$fieldName = $registrationForm[$dictionaryField->name];
                 break;
             default:
-                throw new \Exception('Неверно заполнены поля!');
+                throw new UserValidateException('Неверно заполнены поля!');
                 break;
         }
     }
@@ -143,7 +163,7 @@ class RegisterService
      * @param int $educationalInstitutionId
      * @param int $olympiadTypeId
      * @return Teams
-     * @throws \Exception
+     * @throws Exception
      */
     private function registerTeamModel(Teams $teamModel, int $teamLeaderId, int $educationalInstitutionId, int $olympiadTypeId): Teams
     {
@@ -152,7 +172,7 @@ class RegisterService
             ->where('name', $teamModel->name)
             ->exists();
         if ($teamExists) {
-            throw new \Exception('Не удалось создать команду! Такое название уже существует!');
+            throw new UserValidateException('Не удалось создать команду! Такое название уже существует!');
         }
         $teamModel->teamLeaderId = $teamLeaderId;
         $teamModel->educationalInstitutionId = $educationalInstitutionId;
@@ -189,5 +209,46 @@ class RegisterService
         }
 
         return $participantLoginData;
+    }
+
+    private function validatePhone(string $phone): string
+    {
+        if (!preg_match('/^[+,8]/', $phone)) {
+            throw new UserValidateException('Номера телефонов не соответствуют формату');
+        }
+
+        $phone = $phone[0] === '8' ? '+7' . substr($phone, 1) : $phone;
+
+        if (!preg_match('/^(\+)?((\d{2,3}) ?\d|\d)(([ -]?\d)|( ?(\d{2,3}) ?)){5,12}\d$/', $phone)) {
+            throw new UserValidateException('Номера телефонов не соответствуют формату');
+        }
+
+        return '+7' . preg_replace('/\D/', '', $phone);
+    }
+
+    private function validateRepeatInformation(array $userDataToCheckValidate, int $olympiadId): void
+    {
+        $teamIds = (new Teams())
+            ->where('olympiadTypeId', $olympiadId)
+            ->pluck('id')->toArray();
+        ;
+        $participantName = (new Participants())->where('teamId', $teamIds)->where('fullName', $userDataToCheckValidate['fullName'])->count();
+        $participantEmail = (new Participants())->where('teamId', $teamIds)->where('email', $userDataToCheckValidate['email'])->count();
+        $participantPhone = (new Participants())->where('teamId', $teamIds)->where('phone', $userDataToCheckValidate['phone'])->count();
+        $errors = [];
+
+        if (!empty($participantName)) {
+            $errors[] = 'Пользователь/и с такими ФИО существует';
+        }
+        if (!empty($participantEmail)) {
+            $errors[] = 'Пользователь/и с такой почтой существует';
+        }
+        if (!empty($participantPhone)) {
+            $errors[] = 'Пользователь/и с такими номером существует';
+        }
+
+        if (!empty($errors)) {
+            throw new UserValidateException(implode('\n', $errors));
+        }
     }
 }

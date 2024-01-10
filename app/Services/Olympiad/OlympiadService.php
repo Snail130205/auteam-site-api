@@ -23,6 +23,7 @@ class OlympiadService
 
         $teamCount = (new Teams())
             ->where('olympiadTypeId', $olympiadId)
+            ->where('isRegister', true)
             ->get()
             ->count()
         ;
