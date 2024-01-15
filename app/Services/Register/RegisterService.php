@@ -129,7 +129,7 @@ class RegisterService
         /**
          *  Проверка валидности номеров телефона
          */
-        if ($fieldName === 'phone') {
+        if (strcmp($fieldName, 'phone') === 0) {
             $registrationForm[$dictionaryField->name] = $this->validatePhone($registrationForm[$dictionaryField->name]);
         }
 
@@ -213,14 +213,14 @@ class RegisterService
 
     private function validatePhone(string $phone): string
     {
-        if (!preg_match('/^[+,8]/', $phone)) {
-            throw new UserValidateException('Номера телефонов не соответствуют формату');
+        if (!preg_match('/^[+8]/', $phone)) {
+            throw new UserValidateException('Номера телефонов не соответствуют формату ' . $phone);
         }
 
         $phone = $phone[0] === '8' ? '+7' . substr($phone, 1) : $phone;
 
         if (!preg_match('/^(\+)?((\d{2,3}) ?\d|\d)(([ -]?\d)|( ?(\d{2,3}) ?)){5,12}\d$/', $phone)) {
-            throw new UserValidateException('Номера телефонов не соответствуют формату');
+            throw new UserValidateException('Номера телефонов не соответствуют формату 2 ' . $phone);
         }
 
         return '+7' . preg_replace('/\D/', '', $phone);
