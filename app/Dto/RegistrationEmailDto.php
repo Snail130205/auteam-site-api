@@ -12,7 +12,7 @@ class RegistrationEmailDto
         $this->email = $email;
         $this->olympiadName = $olympiadName;
         $this->teamName = $teamName;
-        $this->registrationUrl = Request::server('HTTP_HOST') . '/api/verified/' . $hash;
+        $this->registrationUrl = 'https://' . Request::server('HTTP_HOST') . '/api/verified/' . $hash;
     }
 
     /**

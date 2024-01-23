@@ -23,3 +23,9 @@ Route::get('/dictionary/getEducationType', [\App\Http\Controllers\DictionaryCont
 Route::post('/register/registerTeam', [\App\Http\Controllers\RegisterController::class, 'registerTeam']);
 
 Route::get('/verified/{key}', [\App\Http\Controllers\RegisterController::class, 'verifyTeam']);
+
+Route::get('/olympiad/{olympiadId}', [\App\Http\Controllers\OlympiadController::class, 'getOlympiadInfo']);
+
+Route::get('/news/getNews', [\App\Http\Controllers\NewsController::class, 'getNews']);
+
+Route::post('/yandex/acceptCaptchaResult', [\App\Http\Controllers\CaptchaController::class, 'acceptCaptchaResult']);
