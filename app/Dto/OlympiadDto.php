@@ -8,10 +8,10 @@ class OlympiadDto
     {
         $this->teamCount = $teamCount;
 
-        $this->olympiadStartDate = $olympiadStartDate;
+        $this->olympiadStartDate = $olympiadStartDate->format('Y/m/d');
     }
 
     public int $teamCount;
 
-    public \DateTime $olympiadStartDate;
+    public ?string $olympiadStartDate;
 }
