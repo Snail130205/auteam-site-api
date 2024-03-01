@@ -66,10 +66,12 @@ class RegisterService
     {
         $team = (new Teams())
             ->where('registerHash', $teamKey)
-            ->where('isRegister', false)
             ->first();
         if (!isset($team)) {
             throw new UserValidateException('Неверная ссылка или ссылка устарела!');
+        }
+        if ($team->isRegister) {
+            return 'Ваша команда уже зарегистрирована!';
         }
         $team->isRegister = true;
         try {
